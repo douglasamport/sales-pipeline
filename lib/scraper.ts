@@ -24,6 +24,8 @@ async function fetchPage(query: string, pageToken?: string) {
   const res = await fetch(`${BASE_URL}/textsearch/json?${params}`);
   const data = await res.json();
 
+  console.log("response", res);
+
   if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
     throw new Error(`Places API error: ${data.status} — ${data.error_message}`);
   }
