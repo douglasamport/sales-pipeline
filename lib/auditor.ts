@@ -144,7 +144,7 @@ function parseHtml(html: string, url: string) {
       has_cta,
       contact_page_url,
       about_page_url,
-      social_links: [...new Set(social_links)],
+      social_links: Array.from(new Set(social_links)),
       page_title,
     },
   };
