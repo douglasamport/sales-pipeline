@@ -59,15 +59,18 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
 
-  callbacks: {
-    async signIn({ user }) {
-      const result = await pool.query(
-        "SELECT id FROM users WHERE email = $1",
-        [user.email]
-      );
-      return result.rows.length > 0;
-    },
-  },
+  // TODO: Re-enable this callback once pool connectivity on Vercel is confirmed.
+  // This provides a second layer of auth by checking the users table on link click.
+  // Currently disabled because sendVerificationRequest already blocks unauthorized emails.
+  // callbacks: {
+  //   async signIn({ user }) {
+  //     const result = await pool.query(
+  //       "SELECT id FROM users WHERE email = $1",
+  //       [user.email]
+  //     );
+  //     return result.rows.length > 0;
+  //   },
+  // },
 
   pages: {
     signIn: "/auth/signin",
