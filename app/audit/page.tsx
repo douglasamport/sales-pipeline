@@ -45,9 +45,17 @@ export default function AuditPage() {
   const [expanded, setExpanded] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/leads")
-      .then((r) => r.json())
-      .then((data) => setLeads(data.leads ?? []));
+    Promise.all([
+      fetch("/api/leads").then((r) => r.json()),
+      fetch("/api/audits").then((r) => r.json()),
+    ]).then(([leadsData, auditsData]) => {
+      setLeads(leadsData.leads ?? []);
+      const auditMap: Record<number, Audit> = {};
+      for (const audit of auditsData.audits ?? []) {
+        auditMap[audit.lead_id] = audit;
+      }
+      setAudits(auditMap);
+    });
   }, []);
 
   async function runAudit(lead: Lead) {
