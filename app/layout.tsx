@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Providers from "@/components/Providers";
+import NavBar from "@/components/NavBar";
 
 export const metadata: Metadata = {
   title: "Sales Pipeline",
@@ -10,10 +12,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="bg-gray-950 text-gray-100 min-h-screen">
-        <nav className="border-b border-gray-800 px-6 py-4">
-          <span className="font-semibold text-white">Sales Pipeline</span>
-        </nav>
-        <main className="p-6">{children}</main>
+        <Providers>
+          <NavBar />
+          <main className="p-6">{children}</main>
+        </Providers>
       </body>
     </html>
   );
