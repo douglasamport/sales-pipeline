@@ -1,5 +1,5 @@
 -- NextAuth required tables
-CREATE TABLE IF NOT EXISTS verification_tokens (
+CREATE TABLE IF NOT EXISTS verification_token (
   identifier TEXT NOT NULL,
   expires    TIMESTAMPTZ NOT NULL,
   token      TEXT NOT NULL,
