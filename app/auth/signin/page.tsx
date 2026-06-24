@@ -49,7 +49,7 @@ export default function SignInPage() {
               disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white py-2 rounded-lg font-medium transition"
             >
-              {loading ? "Sending..." : "Send magic link"}
+              {loading ? "Sending..." : "Send log-in link"}
             </button>
           </form>
         )}

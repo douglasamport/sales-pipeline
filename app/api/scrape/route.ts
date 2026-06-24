@@ -5,6 +5,9 @@ import { scrapeLeads } from "@/lib/scraper";
 export async function POST(req: NextRequest) {
   const { niche, city = "Calgary" } = await req.json();
 
+  console.log("[scrape] niche:", niche);
+  console.log("[scrape] city:", city);
+
   if (!niche) {
     return NextResponse.json({ error: "niche is required" }, { status: 400 });
   }
@@ -14,8 +17,9 @@ export async function POST(req: NextRequest) {
 
     // Upsert each lead — skip duplicates by place_id
     const results = await Promise.all(
-      leads.map((lead) =>
-        sql`
+      leads.map(
+        (lead) =>
+          sql`
           INSERT INTO leads (place_id, name, website, phone, address, niche, city, google_rating, review_count)
           VALUES (
             ${lead.place_id},
@@ -30,8 +34,8 @@ export async function POST(req: NextRequest) {
           )
           ON CONFLICT (place_id) DO NOTHING
           RETURNING *
-        `
-      )
+        `,
+      ),
     );
 
     const inserted = results.flat();

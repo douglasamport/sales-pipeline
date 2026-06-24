@@ -19,6 +19,8 @@ async function fetchPage(query: string, pageToken?: string) {
     ...(pageToken ? { pagetoken: pageToken } : {}),
   });
 
+  console.log(params);
+
   const res = await fetch(`${BASE_URL}/textsearch/json?${params}`);
   const data = await res.json();
 
@@ -55,7 +57,10 @@ async function fetchDetails(placeId: string): Promise<Partial<ScrapedLead>> {
 }
 
 // Main export: scrape a niche in Calgary and return enriched leads
-export async function scrapeLeads(niche: string, city = "Calgary"): Promise<ScrapedLead[]> {
+export async function scrapeLeads(
+  niche: string,
+  city = "Calgary",
+): Promise<ScrapedLead[]> {
   const query = `${niche} in ${city}`;
   const allLeads: ScrapedLead[] = [];
   let pageToken: string | undefined;
@@ -70,13 +75,14 @@ export async function scrapeLeads(niche: string, city = "Calgary"): Promise<Scra
     if (pageToken) await new Promise((r) => setTimeout(r, 2000));
   } while (pageToken);
 
+  return allLeads;
   // Enrich each lead with website + phone
-  const enriched = await Promise.all(
-    allLeads.map(async (lead) => {
-      const details = await fetchDetails(lead.place_id);
-      return { ...lead, ...details };
-    })
-  );
+  // const enriched = await Promise.all(
+  //   allLeads.map(async (lead) => {
+  //     const details = await fetchDetails(lead.place_id);
+  //     return { ...lead, ...details };
+  //   })
+  // );
 
-  return enriched;
+  // return enriched;
 }
