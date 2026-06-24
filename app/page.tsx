@@ -5,7 +5,8 @@ export default function Home() {
     <div className="max-w-xl mx-auto mt-20 text-center">
       <h1 className="text-3xl font-bold mb-4">Calgary SEO Pipeline</h1>
       <p className="text-gray-400 mb-8">
-        Find, audit, score, and reach out to local businesses that need your services.
+        Landing page, Note sure what to put here yet. Find, audit, score, and
+        reach out to local businesses that need your services.
       </p>
       <Link
         href="/leads"
