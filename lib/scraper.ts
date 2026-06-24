@@ -19,11 +19,24 @@ async function fetchPage(query: string, pageToken?: string) {
     ...(pageToken ? { pagetoken: pageToken } : {}),
   });
 
-  const res = await fetch(`${BASE_URL}/textsearch/json?${params}`);
-  const data = await res.json();
+  console.log(query, pageToken?.slice(0, 20));
 
-  if (data.status !== 200) {
-    throw new Error(`Places API error: ${data.status} — ${data.error_message}`);
+  let data: any;
+  try {
+    const url = `${BASE_URL}/textsearch/json?${params}`;
+    console.log(url);
+    var res = await fetch(url);
+
+    if (res.status !== 200 && data.statusText !== "OK") {
+      throw new Error(
+        `Places API error: ${data.status} — ${data.error_message}`,
+      );
+    }
+
+    data = await res.json();
+  } catch (err) {
+    console.error("[scraper] fetchPage error:", err);
+    throw err;
   }
 
   const leads: ScrapedLead[] = (data.results || []).map((place: any) => ({
@@ -55,25 +68,30 @@ async function fetchDetails(placeId: string): Promise<Partial<ScrapedLead>> {
 }
 
 // Main export: scrape a niche in Calgary and return enriched leads
+// Pass existingPlaceIds to skip leads already in the DB before enriching
 export async function scrapeLeads(
   niche: string,
   city = "Calgary",
+  existingPlaceIds: Set<string> = new Set(),
 ): Promise<ScrapedLead[]> {
   const query = `${niche} in ${city}`;
   const allLeads: ScrapedLead[] = [];
   let pageToken: string | undefined;
 
   // Google Places Text Search returns up to 60 results across 3 pages
+  let pages = 0;
+
   do {
     const { leads, nextPageToken } = await fetchPage(query, pageToken);
-    allLeads.push(...leads);
+    const newLeads = leads.filter((l) => !existingPlaceIds.has(l.place_id));
+    allLeads.push(...newLeads);
     pageToken = nextPageToken;
+    pages++;
 
-    // Required delay between paginated requests per Google's API requirements
     if (pageToken) await new Promise((r) => setTimeout(r, 2000));
-  } while (pageToken);
+  } while (pageToken && allLeads.length < 60 && pages < 3);
 
-  // Enrich each lead with website + phone
+  // Enrich only new leads with website + phone (avoids wasting API calls on duplicates)
   const enriched = await Promise.all(
     allLeads.map(async (lead) => {
       const details = await fetchDetails(lead.place_id);

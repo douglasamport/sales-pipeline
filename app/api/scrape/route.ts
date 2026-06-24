@@ -10,7 +10,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const leads = await scrapeLeads(niche, city);
+    // Fetch existing place_ids for this niche to avoid redundant enrichment API calls
+    const existing = await sql`
+      SELECT place_id FROM leads WHERE niche = ${niche} AND city = ${city}
+    `;
+    const existingPlaceIds = new Set(existing.map((r: any) => r.place_id));
+
+    const leads = await scrapeLeads(niche, city, existingPlaceIds);
 
     // Upsert each lead — skip duplicates by place_id
     const results = await Promise.all(

@@ -54,16 +54,23 @@ CREATE TABLE IF NOT EXISTS leads (
 
 -- Audits: website + SEO health check results
 CREATE TABLE IF NOT EXISTS audits (
-  id                  SERIAL PRIMARY KEY,
-  lead_id             INT REFERENCES leads(id) ON DELETE CASCADE,
-  created_at          TIMESTAMPTZ DEFAULT NOW(),
-  pagespeed_mobile    INT,
-  pagespeed_desktop   INT,
+  id                   SERIAL PRIMARY KEY,
+  lead_id              INT REFERENCES leads(id) ON DELETE CASCADE,
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
+  -- Core columns for scoring/filtering
+  pagespeed_mobile     INT,
+  pagespeed_desktop    INT,
+  has_ssl              BOOLEAN,
   has_meta_description BOOLEAN,
-  has_h1              BOOLEAN,
-  has_ssl             BOOLEAN,
-  gbp_complete        BOOLEAN,
-  raw_json            JSONB         -- store full API responses for later use
+  has_h1               BOOLEAN,
+  has_blog             BOOLEAN,
+  has_facebook         BOOLEAN,
+  has_instagram        BOOLEAN,
+  contact_email        TEXT,
+  copyright_year       INT,
+  -- Everything else stored flexibly
+  raw_json             JSONB,
+  UNIQUE (lead_id)
 );
 
 -- Scores: fit/pain/opportunity breakdown and tier

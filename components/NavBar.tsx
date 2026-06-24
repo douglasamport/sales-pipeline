@@ -16,6 +16,9 @@ export default function NavBar() {
           <Link href="/leads" className="text-sm text-gray-400 hover:text-white transition">
             Leads
           </Link>
+          <Link href="/audit" className="text-sm text-gray-400 hover:text-white transition">
+            Audit
+          </Link>
           <span className="text-gray-600">|</span>
           <span className="text-gray-400 text-sm">{session.user?.email}</span>
           <button
