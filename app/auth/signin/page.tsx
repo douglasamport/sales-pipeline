@@ -11,7 +11,7 @@ export default function SignInPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await signIn("email", { email, redirect: false });
+    await signIn("email", { email, redirect: false, callbackUrl: "/leads" });
     setSubmitted(true);
     setLoading(false);
   }

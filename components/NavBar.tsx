@@ -13,6 +13,10 @@ export default function NavBar() {
       </Link>
       {session && (
         <div className="flex items-center gap-4">
+          <Link href="/leads" className="text-sm text-gray-400 hover:text-white transition">
+            Leads
+          </Link>
+          <span className="text-gray-600">|</span>
           <span className="text-gray-400 text-sm">{session.user?.email}</span>
           <button
             onClick={() => signOut({ callbackUrl: "/auth/signin" })}
