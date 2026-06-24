@@ -19,14 +19,10 @@ async function fetchPage(query: string, pageToken?: string) {
     ...(pageToken ? { pagetoken: pageToken } : {}),
   });
 
-  console.log(params);
-
   const res = await fetch(`${BASE_URL}/textsearch/json?${params}`);
   const data = await res.json();
 
-  console.log("response", res);
-
-  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+  if (data.status !== 200) {
     throw new Error(`Places API error: ${data.status} — ${data.error_message}`);
   }
 
@@ -77,14 +73,13 @@ export async function scrapeLeads(
     if (pageToken) await new Promise((r) => setTimeout(r, 2000));
   } while (pageToken);
 
-  return allLeads;
   // Enrich each lead with website + phone
-  // const enriched = await Promise.all(
-  //   allLeads.map(async (lead) => {
-  //     const details = await fetchDetails(lead.place_id);
-  //     return { ...lead, ...details };
-  //   })
-  // );
+  const enriched = await Promise.all(
+    allLeads.map(async (lead) => {
+      const details = await fetchDetails(lead.place_id);
+      return { ...lead, ...details };
+    }),
+  );
 
-  // return enriched;
+  return enriched;
 }

@@ -5,9 +5,6 @@ import { scrapeLeads } from "@/lib/scraper";
 export async function POST(req: NextRequest) {
   const { niche, city = "Calgary" } = await req.json();
 
-  console.log("[scrape] niche:", niche);
-  console.log("[scrape] city:", city);
-
   if (!niche) {
     return NextResponse.json({ error: "niche is required" }, { status: 400 });
   }
