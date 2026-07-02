@@ -24,6 +24,8 @@ export async function POST(req: NextRequest) {
   try {
     const result = await auditLead(lead.website);
 
+    console.log(result);
+
     // Upsert audit — replace if already exists for this lead
     const audit = await sql`
       INSERT INTO audits (
@@ -62,8 +64,12 @@ export async function POST(req: NextRequest) {
 
     // Update lead status
     await sql`UPDATE leads SET status = 'audited' WHERE id = ${lead_id}`;
-
-    return NextResponse.json({ audit: audit[0] });
+    return NextResponse.json(
+      { audit: audit[0] },
+      {
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   } catch (err: any) {
     console.error("Audit error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

@@ -1,4 +1,5 @@
-const PAGESPEED_API = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
+const PAGESPEED_API =
+  "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
 export interface AuditResult {
   // Core columns
@@ -33,10 +34,13 @@ export interface AuditResult {
 
 // Run PageSpeed for mobile and desktop
 async function runPageSpeed(url: string) {
+  const key = process.env.GOOGLE_PAGESPEED_KEY;
+  const keyParam = key ? `&key=${key}` : "";
+
   try {
     const [mobileRes, desktopRes] = await Promise.all([
-      fetch(`${PAGESPEED_API}?url=${encodeURIComponent(url)}&strategy=mobile`),
-      fetch(`${PAGESPEED_API}?url=${encodeURIComponent(url)}&strategy=desktop`),
+      fetch(`${PAGESPEED_API}?url=${encodeURIComponent(url)}&strategy=mobile${keyParam}`),
+      fetch(`${PAGESPEED_API}?url=${encodeURIComponent(url)}&strategy=desktop${keyParam}`),
     ]);
 
     const [mobile, desktop] = await Promise.all([
@@ -45,8 +49,18 @@ async function runPageSpeed(url: string) {
     ]);
 
     return {
-      mobile: Math.round((mobile.lighthouseResult?.categories?.performance?.score ?? 0) * 100),
-      desktop: Math.round((desktop.lighthouseResult?.categories?.performance?.score ?? 0) * 100),
+      mobile:
+        mobile.lighthouseResult?.categories?.performance?.score != null
+          ? Math.round(
+              mobile.lighthouseResult.categories.performance.score * 100,
+            )
+          : null,
+      desktop:
+        desktop.lighthouseResult?.categories?.performance?.score != null
+          ? Math.round(
+              desktop.lighthouseResult.categories.performance.score * 100,
+            )
+          : null,
     };
   } catch {
     return { mobile: null, desktop: null };
@@ -57,7 +71,9 @@ async function runPageSpeed(url: string) {
 async function fetchHtml(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; SalesPipelineBot/1.0)" },
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; SalesPipelineBot/1.0)",
+      },
       signal: AbortSignal.timeout(10000),
     });
     return await res.text();
@@ -71,15 +87,20 @@ function parseHtml(html: string, url: string) {
   const lower = html.toLowerCase();
 
   // Basic SEO
-  const has_meta_description = /<meta\s[^>]*name=["']description["'][^>]*>/i.test(html);
+  const has_meta_description =
+    /<meta\s[^>]*name=["']description["'][^>]*>/i.test(html);
   const has_h1 = /<h1[\s>]/i.test(html);
-  const page_title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? null;
+  const page_title =
+    html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? null;
 
   // SSL
   const has_ssl = url.startsWith("https://");
 
   // Blog detection
-  const has_blog = /href=["'][^"']*\/(blog|news|articles|insights|posts|updates)[/"']/i.test(html);
+  const has_blog =
+    /href=["'][^"']*\/(blog|news|articles|insights|posts|updates)[/"']/i.test(
+      html,
+    );
 
   // Social media links
   const has_facebook = /facebook\.com\//i.test(html);
@@ -99,21 +120,35 @@ function parseHtml(html: string, url: string) {
   }
 
   // Contact info
-  const emailMatch = html.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  const emailMatch = html.match(
+    /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/,
+  );
   const contact_email = emailMatch ? emailMatch[0] : null;
 
   // Page links
   const has_privacy_policy = /privacy.?policy|privacy.?notice/i.test(html);
-  const has_about_page = /href=["'][^"']*\/(about|about-us|our-story|team)[/"']/i.test(html);
-  const has_testimonials = /testimonial|reviews|what.our.clients|what.customers/i.test(html);
-  const has_cta = /get.a.quote|book.a|schedule.a|contact.us|free.consult|get.started/i.test(html);
-  const has_chat_widget = /intercom|drift|tawk|livechat|crisp|freshchat|zendesk/i.test(html);
-  const has_google_analytics = /google-analytics|gtag\(|UA-\d|G-[A-Z0-9]/i.test(html);
+  const has_about_page =
+    /href=["'][^"']*\/(about|about-us|our-story|team)[/"']/i.test(html);
+  const has_testimonials =
+    /testimonial|reviews|what.our.clients|what.customers/i.test(html);
+  const has_cta =
+    /get.a.quote|book.a|schedule.a|contact.us|free.consult|get.started/i.test(
+      html,
+    );
+  const has_chat_widget =
+    /intercom|drift|tawk|livechat|crisp|freshchat|zendesk/i.test(html);
+  const has_google_analytics = /google-analytics|gtag\(|UA-\d|G-[A-Z0-9]/i.test(
+    html,
+  );
 
   // Contact and about page URLs
-  const contactMatch = html.match(/href=["']([^"']*\/(contact|contact-us)[^"']*)['"]/i);
+  const contactMatch = html.match(
+    /href=["']([^"']*\/(contact|contact-us)[^"']*)['"]/i,
+  );
   const contact_page_url = contactMatch ? contactMatch[1] : null;
-  const aboutMatch = html.match(/href=["']([^"']*\/(about|about-us|our-story|team)[^"']*)['"]/i);
+  const aboutMatch = html.match(
+    /href=["']([^"']*\/(about|about-us|our-story|team)[^"']*)['"]/i,
+  );
   const about_page_url = aboutMatch ? aboutMatch[1] : null;
 
   // Copyright year
@@ -184,10 +219,7 @@ export async function auditLead(url: string): Promise<AuditResult> {
   }
 
   // Run PageSpeed and HTML fetch in parallel
-  const [speed, html] = await Promise.all([
-    runPageSpeed(url),
-    fetchHtml(url),
-  ]);
+  const [speed, html] = await Promise.all([runPageSpeed(url), fetchHtml(url)]);
 
   if (!html) {
     return {

@@ -68,6 +68,13 @@ CREATE TABLE IF NOT EXISTS audits (
   has_instagram        BOOLEAN,
   contact_email        TEXT,
   copyright_year       INT,
+  -- Ahrefs enrichment (separate step)
+  domain_rating        INT,
+  referring_domains    INT,
+  backlinks            INT,
+  organic_keywords     INT,
+  organic_traffic      INT,
+  ahrefs_enriched_at   TIMESTAMPTZ,
   -- Everything else stored flexibly
   raw_json             JSONB,
   UNIQUE (lead_id)
