@@ -27,13 +27,16 @@ export async function POST(req: Request) {
 
     await sql`
       UPDATE audits SET
-        fit_score         = ${result.fit_score},
-        pain_score        = ${result.pain_score},
-        opportunity_score = ${result.opportunity_score},
-        total_score       = ${result.total_score},
-        tier              = ${result.tier},
-        ai_summary        = ${result.ai_summary},
-        scored_at         = NOW()
+        fit_score             = ${result.fit_score},
+        pain_score            = ${result.pain_score},
+        opportunity_score     = ${result.opportunity_score},
+        total_score           = ${result.total_score},
+        tier                  = ${result.tier},
+        ai_summary            = ${result.ai_summary},
+        fit_explanation       = ${result.fit_explanation},
+        pain_explanation      = ${result.pain_explanation},
+        opportunity_explanation = ${result.opportunity_explanation},
+        scored_at             = NOW()
       WHERE lead_id = ${lead_id}
     `;
 

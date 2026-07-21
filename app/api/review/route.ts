@@ -14,6 +14,8 @@ export async function POST(req: Request) {
       await sql`UPDATE leads SET status = ${value} WHERE id = ${lead_id}`;
     } else if (action === "tier") {
       await sql`UPDATE audits SET tier = ${value} WHERE lead_id = ${lead_id}`;
+    } else if (action === "starred") {
+      await sql`UPDATE leads SET starred = ${value === "true"} WHERE id = ${lead_id}`;
     }
 
     return NextResponse.json({ ok: true });

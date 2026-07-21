@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       INSERT INTO audits (
         lead_id, pagespeed_mobile, pagespeed_desktop, has_ssl,
         has_meta_description, has_h1, has_blog, has_facebook,
-        has_instagram, contact_email, copyright_year, raw_json
+        has_instagram, contact_email, copyright_year, raw_json, site_text
       ) VALUES (
         ${lead_id},
         ${result.pagespeed_mobile},
@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
         ${result.has_instagram},
         ${result.contact_email},
         ${result.copyright_year},
-        ${JSON.stringify(result.raw_json)}
+        ${JSON.stringify(result.raw_json)},
+        ${result.site_text}
       )
       ON CONFLICT (lead_id) DO UPDATE SET
         pagespeed_mobile     = EXCLUDED.pagespeed_mobile,
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
         contact_email        = EXCLUDED.contact_email,
         copyright_year       = EXCLUDED.copyright_year,
         raw_json             = EXCLUDED.raw_json,
+        site_text            = EXCLUDED.site_text,
         created_at           = NOW()
       RETURNING *
     `;

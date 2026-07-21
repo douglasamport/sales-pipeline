@@ -1,5 +1,14 @@
 const AHREFS_API = "https://api.ahrefs.com/v3";
 
+// Domains to exclude from competitor results — directories and social platforms
+const NON_COMPETITOR_DOMAINS = new Set([
+  "facebook.com", "instagram.com", "linkedin.com", "twitter.com", "x.com",
+  "youtube.com", "yelp.com", "google.com", "tripadvisor.com",
+  "yellowpages.com", "bbb.org", "thumbtack.com", "angi.com",
+  "homeadvisor.com", "houzz.com", "realtor.com", "zillow.com",
+  "wikipedia.org", "reddit.com", "pinterest.com",
+]);
+
 export interface AhrefsResult {
   domain_rating: number | null;
   referring_domains: number | null;
@@ -15,6 +24,34 @@ function extractDomain(url: string): string {
     return hostname.replace(/^www\./, "");
   } catch {
     return url;
+  }
+}
+
+export async function getCompetingDomains(url: string): Promise<string[]> {
+  const apiKey = process.env.AHREFS_API_KEY;
+  if (!apiKey) return [];
+
+  const domain = extractDomain(url);
+  const date = new Date().toISOString().split("T")[0];
+
+  try {
+    const res = await fetch(
+      `${AHREFS_API}/site-explorer/competing-domains?target=${domain}&mode=domain&limit=10&date=${date}`,
+      { headers: { Authorization: `Bearer ${apiKey}` } },
+    );
+
+    if (!res.ok) return [];
+    const data = await res.json();
+
+    // Ahrefs returns: { competing_domains: [{ domain: string, ... }] }
+    const raw: Array<{ domain: string }> = data?.competing_domains ?? [];
+
+    return raw
+      .map((r) => r.domain.replace(/^www\./, ""))
+      .filter((d) => !NON_COMPETITOR_DOMAINS.has(d))
+      .slice(0, 3);
+  } catch {
+    return [];
   }
 }
 

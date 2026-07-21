@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { enrichWithAhrefs } from "@/lib/ahrefs";
+import { enrichWithAhrefs, getCompetingDomains } from "@/lib/ahrefs";
 
 export async function POST(req: Request) {
   try {
@@ -19,7 +19,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await enrichWithAhrefs(lead.website);
+    // Run both calls in parallel — competitors are a bonus, don't block on failure
+    const [result, competitors] = await Promise.all([
+      enrichWithAhrefs(lead.website),
+      getCompetingDomains(lead.website),
+    ]);
 
     await sql`
       UPDATE audits SET
@@ -28,12 +32,13 @@ export async function POST(req: Request) {
         backlinks          = ${result.backlinks},
         organic_keywords   = ${result.organic_keywords},
         organic_traffic    = ${result.organic_traffic},
+        top_competitors    = ${competitors.length > 0 ? competitors : null},
         ahrefs_enriched_at = NOW(),
         raw_json           = raw_json || ${JSON.stringify({ ahrefs: result })}::jsonb
       WHERE lead_id = ${lead_id}
     `;
 
-    return NextResponse.json({ result });
+    return NextResponse.json({ result, competitors });
   } catch (err: any) {
     console.error("Enrich error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

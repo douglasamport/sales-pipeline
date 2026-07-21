@@ -5,6 +5,9 @@ export interface ScoreResult {
   total_score: number;
   tier: "A" | "B" | "C";
   ai_summary: string;
+  fit_explanation: string;
+  pain_explanation: string;
+  opportunity_explanation: string;
   error?: string;
 }
 
@@ -45,6 +48,8 @@ Tier rules: A = total >= 210, B = total 150–209, C = below 150
 
 Write a 2–3 sentence summary of the key opportunity or most glaring pain point for this specific business. Be specific — mention their niche, scores, and what an SEO agency could realistically fix or exploit.
 
+Also write a 1–2 sentence explanation for each dimension score, specific to this business.
+
 Respond only in valid JSON:
 {
   "fit_score": number,
@@ -52,7 +57,10 @@ Respond only in valid JSON:
   "opportunity_score": number,
   "total_score": number,
   "tier": "A" | "B" | "C",
-  "ai_summary": "string"
+  "ai_summary": "string",
+  "fit_explanation": "Why this fit score — reference their niche, business type, and website presence",
+  "pain_explanation": "Why this pain score — reference specific SEO/web issues found in the audit",
+  "opportunity_explanation": "Why this opportunity score — reference their market position and growth potential"
 }`;
 
   try {
@@ -87,6 +95,9 @@ Respond only in valid JSON:
       total_score: total,
       tier: json.tier ?? deriveTier(total),
       ai_summary: json.ai_summary ?? "",
+      fit_explanation: json.fit_explanation ?? "",
+      pain_explanation: json.pain_explanation ?? "",
+      opportunity_explanation: json.opportunity_explanation ?? "",
     };
   } catch (err: any) {
     return fallback(err.message);
@@ -107,6 +118,9 @@ function fallback(error: string): ScoreResult {
     total_score: 0,
     tier: "C",
     ai_summary: "",
+    fit_explanation: "",
+    pain_explanation: "",
+    opportunity_explanation: "",
     error,
   };
 }

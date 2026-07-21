@@ -1,12 +1,18 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import FilterSortBar, {
+  FilterSortState,
+  DEFAULT_FILTERS,
+} from "@/components/FilterSortBar";
+import { useFilters } from "../context/filter-context";
 
 interface Lead {
   id: number;
   name: string;
   website?: string;
   niche: string;
+  city?: string;
   status: string;
   google_rating?: number;
   review_count?: number;
@@ -40,6 +46,9 @@ interface Audit {
   total_score: number | null;
   tier: "A" | "B" | "C" | null;
   ai_summary: string | null;
+  fit_explanation: string | null;
+  pain_explanation: string | null;
+  opportunity_explanation: string | null;
   scored_at: string | null;
   raw_json: any;
 }
@@ -99,7 +108,17 @@ export default function AuditPage() {
   const [scoring, setScoring] = useState<Record<number, boolean>>({});
   const [contacts, setContacts] = useState<Record<number, Contact[]>>({});
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  const [auditAllProgress, setAuditAllProgress] = useState<{
+    running: boolean;
+    current: number;
+    total: number;
+  }>({
+    running: false,
+    current: 0,
+    total: 0,
+  });
+  const { filters, setFilters } = useFilters();
 
   useEffect(() => {
     Promise.all([
@@ -119,6 +138,130 @@ export default function AuditPage() {
       setAudits(auditMap);
     });
   }, []);
+
+  function exportCSV() {
+    const escape = (v: any) => {
+      const s = v == null ? "" : String(v);
+      return s.includes(",") || s.includes('"') || s.includes("\n")
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+
+    const headers = [
+      "Name",
+      "Website",
+      "Niche",
+      "City",
+      "Status",
+      "Google Rating",
+      "Reviews",
+      "Categories",
+      "Mobile Speed",
+      "Desktop Speed",
+      "SSL",
+      "Meta Desc",
+      "H1",
+      "Blog",
+      "Facebook",
+      "Instagram",
+      "Contact Email",
+      "Domain Rating",
+      "Ref Domains",
+      "Org Keywords",
+      "Org Traffic",
+      "Tier",
+      "Total Score",
+      "Fit",
+      "Pain",
+      "Opportunity",
+      "AI Summary",
+    ];
+
+    const rows = visibleLeads.map((lead) => {
+      const a = audits[lead.id];
+      return [
+        lead.name,
+        lead.website,
+        lead.niche,
+        lead.city,
+        lead.status,
+        lead.google_rating,
+        lead.review_count,
+        (lead.categories ?? []).join("; "),
+        a?.pagespeed_mobile,
+        a?.pagespeed_desktop,
+        a?.has_ssl,
+        a?.has_meta_description,
+        a?.has_h1,
+        a?.has_blog,
+        a?.has_facebook,
+        a?.has_instagram,
+        a?.contact_email,
+        a?.domain_rating,
+        a?.referring_domains,
+        a?.organic_keywords,
+        a?.organic_traffic,
+        a?.tier,
+        a?.total_score,
+        a?.fit_score,
+        a?.pain_score,
+        a?.opportunity_score,
+        a?.ai_summary,
+      ]
+        .map(escape)
+        .join(",");
+    });
+
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function discard(lead_id: number) {
+    await fetch("/api/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lead_id, action: "status", value: "discarded" }),
+    });
+    setLeads((prev) => prev.filter((l) => l.id !== lead_id));
+  }
+
+  async function auditAll(targets: Lead[]) {
+    const queue = targets.filter((l) => l.website && !audits[l.id]);
+    if (queue.length === 0) return;
+
+    setAuditAllProgress({ running: true, current: 0, total: queue.length });
+
+    for (let i = 0; i < queue.length; i++) {
+      const lead = queue[i];
+      setAuditAllProgress((p) => ({ ...p, current: i + 1 }));
+      try {
+        const res = await fetch("/api/audit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lead_id: lead.id }),
+        });
+        const data = await res.json();
+        if (data.audit) {
+          setAudits((prev) => ({ ...prev, [lead.id]: data.audit }));
+          setLeads((prev) =>
+            prev.map((l) =>
+              l.id === lead.id ? { ...l, status: "audited" } : l,
+            ),
+          );
+        }
+      } catch {
+        // skip failed lead, continue queue
+      }
+    }
+
+    setAuditAllProgress({ running: false, current: 0, total: 0 });
+  }
 
   async function runAudit(lead: Lead) {
     if (!lead.website) return;
@@ -202,6 +345,9 @@ export default function AuditPage() {
             total_score: data.result.total_score,
             tier: data.result.tier,
             ai_summary: data.result.ai_summary,
+            fit_explanation: data.result.fit_explanation,
+            pain_explanation: data.result.pain_explanation,
+            opportunity_explanation: data.result.opportunity_explanation,
             scored_at: new Date().toISOString(),
           },
         }));
@@ -246,39 +392,98 @@ export default function AuditPage() {
     }
   }
 
-  // Derive unique meaningful categories from loaded leads
   const allCategories = Array.from(
-    new Set(leads.flatMap((l) => l.categories ?? []))
+    new Set(leads.flatMap((l) => l.categories ?? [])),
   ).sort();
 
-  const visibleLeads =
-    categoryFilter === "all"
-      ? leads
-      : leads.filter((l) => l.categories?.includes(categoryFilter));
+  const allCities = Array.from(
+    new Set(leads.map((l) => l.city).filter(Boolean) as string[]),
+  ).sort();
+
+  const visibleLeads = leads
+    .filter((lead) => {
+      const audit = audits[lead.id];
+      if (
+        filters.category !== "all" &&
+        !lead.categories?.includes(filters.category)
+      )
+        return false;
+      if (filters.city !== "all" && lead.city !== filters.city) return false;
+      if (
+        filters.status === "all"
+          ? lead.status === "discarded"
+          : lead.status !== filters.status
+      )
+        return false;
+      if (filters.tier !== "all" && (audit?.tier ?? null) !== filters.tier)
+        return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const dir = filters.sortDir === "asc" ? 1 : -1;
+      switch (filters.sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name) * dir;
+        case "google_rating":
+          return ((a.google_rating ?? 0) - (b.google_rating ?? 0)) * dir;
+        case "review_count":
+          return ((a.review_count ?? 0) - (b.review_count ?? 0)) * dir;
+        case "total_score":
+          return (
+            ((audits[a.id]?.total_score ?? 0) -
+              (audits[b.id]?.total_score ?? 0)) *
+            dir
+          );
+        default:
+          return 0;
+      }
+    });
 
   return (
     <div className="max-w-full mx-auto px-4">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Audit</h1>
-        {allCategories.length > 0 && (
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded px-3 py-1.5"
-          >
-            <option value="all">All categories</option>
-            {allCategories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="flex items-center gap-2">
+          {auditAllProgress.running ? (
+            <span className="text-sm text-gray-400">
+              Auditing {auditAllProgress.current} / {auditAllProgress.total}...
+            </span>
+          ) : (
+            (() => {
+              const unaudited = visibleLeads.filter(
+                (l) => l.website && !audits[l.id],
+              );
+              return unaudited.length > 0 ? (
+                <button
+                  onClick={() => auditAll(visibleLeads)}
+                  className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded transition"
+                >
+                  Audit all ({unaudited.length})
+                </button>
+              ) : null;
+            })()
+          )}
+          {visibleLeads.length > 0 && (
+            <button
+              onClick={exportCSV}
+              className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 text-sm px-4 py-1.5 rounded transition"
+            >
+              Export CSV
+            </button>
+          )}
+        </div>
       </div>
+      <FilterSortBar
+        filters={filters}
+        onChange={setFilters}
+        categories={allCategories}
+        cities={allCities}
+        resultCount={visibleLeads.length}
+      />
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-auto max-h-[calc(100vh-14rem)]">
         <table className="w-full text-sm">
-          <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+          <thead className="bg-gray-800 text-gray-400 uppercase text-xs sticky top-0 z-10">
             <tr>
               <th className="px-4 py-3 text-left">Business</th>
               <th className="px-4 py-3 text-left">Website</th>
@@ -302,6 +507,7 @@ export default function AuditPage() {
               <th className="px-4 py-3 text-center">Enrich</th>
               <th className="px-4 py-3 text-center">Hunter</th>
               <th className="px-4 py-3 text-center">Score</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
@@ -328,7 +534,10 @@ export default function AuditPage() {
                             <span
                               key={cat}
                               className="text-xs bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded cursor-pointer hover:text-gray-300"
-                              onClick={(e) => { e.stopPropagation(); setCategoryFilter(cat); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFilters((f) => ({ ...f, category: cat }));
+                              }}
                             >
                               {cat.replace(/_/g, " ")}
                             </span>
@@ -531,13 +740,25 @@ export default function AuditPage() {
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          discard(lead.id);
+                        }}
+                        className="text-gray-600 hover:text-red-400 transition text-lg leading-none"
+                        title="Discard lead"
+                      >
+                        ×
+                      </button>
+                    </td>
                   </tr>
                   {expanded === lead.id && audit?.raw_json && (
                     <tr key={`${lead.id}-expanded`} className="bg-gray-800/30">
-                      <td colSpan={21} className="px-6 py-4">
+                      <td colSpan={22} className="px-6 py-4">
                         {audit.scored_at && (
                           <div className="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-700">
-                            <div className="flex items-center gap-4 mb-2">
+                            <div className="flex items-center gap-3 mb-3">
                               <span
                                 className={`text-lg font-bold px-3 py-1 rounded ${
                                   audit.tier === "A"
@@ -549,30 +770,45 @@ export default function AuditPage() {
                               >
                                 Tier {audit.tier}
                               </span>
-                              <span className="text-xs text-gray-400">
-                                Fit:{" "}
-                                <span className="text-white">
-                                  {audit.fit_score}
-                                </span>{" "}
-                                · Pain:{" "}
-                                <span className="text-white">
-                                  {audit.pain_score}
-                                </span>{" "}
-                                · Opportunity:{" "}
-                                <span className="text-white">
-                                  {audit.opportunity_score}
-                                </span>{" "}
-                                · Total:{" "}
+                              <span className="text-xs text-gray-500">
+                                Total:{" "}
                                 <span className="text-white font-semibold">
                                   {audit.total_score}
                                 </span>
                               </span>
                             </div>
                             {audit.ai_summary && (
-                              <p className="text-gray-300 text-xs leading-relaxed">
+                              <p className="text-gray-300 text-xs leading-relaxed mb-3">
                                 {audit.ai_summary}
                               </p>
                             )}
+                            <ul className="space-y-2 text-xs">
+                              <li>
+                                <span className="text-white font-semibold">
+                                  FIT ({audit.fit_score}/100):{" "}
+                                </span>
+                                <span className="text-gray-300">
+                                  {audit.fit_explanation ?? "—"}
+                                </span>
+                              </li>
+                              <li>
+                                <span className="text-white font-semibold">
+                                  PAIN ({audit.pain_score}/100):{" "}
+                                </span>
+                                <span className="text-gray-300">
+                                  {audit.pain_explanation ?? "—"}
+                                </span>
+                              </li>
+                              <li>
+                                <span className="text-white font-semibold">
+                                  OPPORTUNITY ({audit.opportunity_score}
+                                  /100):{" "}
+                                </span>
+                                <span className="text-gray-300">
+                                  {audit.opportunity_explanation ?? "—"}
+                                </span>
+                              </li>
+                            </ul>
                           </div>
                         )}
                         {contacts[lead.id] && contacts[lead.id].length > 0 && (
@@ -755,22 +991,27 @@ export default function AuditPage() {
                             )}
                           </div>
                           {lead.categories && lead.categories.length > 0 && (
-                          <div className="space-y-1">
-                            <p className="text-gray-400 font-medium uppercase tracking-wide mb-2">
-                              Categories
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                              {lead.categories.map((cat) => (
-                                <span
-                                  key={cat}
-                                  className="text-xs bg-gray-800 text-gray-300 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-700"
-                                  onClick={() => setCategoryFilter(cat)}
-                                >
-                                  {cat.replace(/_/g, " ")}
-                                </span>
-                              ))}
+                            <div className="space-y-1">
+                              <p className="text-gray-400 font-medium uppercase tracking-wide mb-2">
+                                Categories
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {lead.categories.map((cat) => (
+                                  <span
+                                    key={cat}
+                                    className="text-xs bg-gray-800 text-gray-300 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-700"
+                                    onClick={() =>
+                                      setFilters((f) => ({
+                                        ...f,
+                                        category: cat,
+                                      }))
+                                    }
+                                  >
+                                    {cat.replace(/_/g, " ")}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
-                          </div>
                           )}
                           <div className="space-y-1">
                             <p className="text-gray-400 font-medium uppercase tracking-wide mb-2">
@@ -866,10 +1107,10 @@ export default function AuditPage() {
           <div className="text-center text-gray-600 py-20">
             No leads match this category.{" "}
             <button
-              onClick={() => setCategoryFilter("all")}
+              onClick={() => setFilters(DEFAULT_FILTERS)}
               className="text-blue-500 hover:underline"
             >
-              Clear filter
+              Clear filters
             </button>
           </div>
         )}
