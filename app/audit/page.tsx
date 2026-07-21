@@ -10,6 +10,7 @@ interface Lead {
   status: string;
   google_rating?: number;
   review_count?: number;
+  categories?: string[];
 }
 
 interface Audit {
@@ -98,6 +99,7 @@ export default function AuditPage() {
   const [scoring, setScoring] = useState<Record<number, boolean>>({});
   const [contacts, setContacts] = useState<Record<number, Contact[]>>({});
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   useEffect(() => {
     Promise.all([
@@ -213,6 +215,7 @@ export default function AuditPage() {
   }
 
   async function runEnrich(lead: Lead) {
+    console.log();
     if (!lead.website) return;
     setEnriching((prev) => ({ ...prev, [lead.id]: true }));
     try {
@@ -243,9 +246,35 @@ export default function AuditPage() {
     }
   }
 
+  // Derive unique meaningful categories from loaded leads
+  const allCategories = Array.from(
+    new Set(leads.flatMap((l) => l.categories ?? []))
+  ).sort();
+
+  const visibleLeads =
+    categoryFilter === "all"
+      ? leads
+      : leads.filter((l) => l.categories?.includes(categoryFilter));
+
   return (
     <div className="max-w-full mx-auto px-4">
-      <h1 className="text-2xl font-bold mb-6">Audit</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Audit</h1>
+        {allCategories.length > 0 && (
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded px-3 py-1.5"
+          >
+            <option value="all">All categories</option>
+            {allCategories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat.replace(/_/g, " ")}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
         <table className="w-full text-sm">
@@ -276,7 +305,7 @@ export default function AuditPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
-            {leads.map((lead) => {
+            {visibleLeads.map((lead) => {
               const audit = audits[lead.id];
               const isEnriched = !!audit?.ahrefs_enriched_at;
               const isHunted = !!audit?.hunter_enriched_at;
@@ -291,7 +320,22 @@ export default function AuditPage() {
                       if (next && !contacts[lead.id]) fetchContacts(lead.id);
                     }}
                   >
-                    <td className="px-4 py-3 font-medium">{lead.name}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{lead.name}</div>
+                      {lead.categories && lead.categories.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {lead.categories.slice(0, 2).map((cat) => (
+                            <span
+                              key={cat}
+                              className="text-xs bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded cursor-pointer hover:text-gray-300"
+                              onClick={(e) => { e.stopPropagation(); setCategoryFilter(cat); }}
+                            >
+                              {cat.replace(/_/g, " ")}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       {lead.website ? (
                         <a
@@ -710,6 +754,24 @@ export default function AuditPage() {
                               </p>
                             )}
                           </div>
+                          {lead.categories && lead.categories.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-gray-400 font-medium uppercase tracking-wide mb-2">
+                              Categories
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {lead.categories.map((cat) => (
+                                <span
+                                  key={cat}
+                                  className="text-xs bg-gray-800 text-gray-300 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-700"
+                                  onClick={() => setCategoryFilter(cat)}
+                                >
+                                  {cat.replace(/_/g, " ")}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          )}
                           <div className="space-y-1">
                             <p className="text-gray-400 font-medium uppercase tracking-wide mb-2">
                               Hunter
@@ -798,6 +860,17 @@ export default function AuditPage() {
         {leads.length === 0 && (
           <div className="text-center text-gray-600 py-20">
             No leads yet. Go to the Leads page to scrape some first.
+          </div>
+        )}
+        {leads.length > 0 && visibleLeads.length === 0 && (
+          <div className="text-center text-gray-600 py-20">
+            No leads match this category.{" "}
+            <button
+              onClick={() => setCategoryFilter("all")}
+              className="text-blue-500 hover:underline"
+            >
+              Clear filter
+            </button>
           </div>
         )}
       </div>

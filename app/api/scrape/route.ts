@@ -3,52 +3,111 @@ import { sql } from "@/lib/db";
 import { scrapeLeads } from "@/lib/scraper";
 
 export async function POST(req: NextRequest) {
-  const { niche, city = "Calgary" } = await req.json();
+  console.log("WORKING");
+  const { niche, city = "Calgary", searchQuery } = await req.json();
+
+  console.log("call data", niche, city, searchQuery);
 
   if (!niche) {
     return NextResponse.json({ error: "niche is required" }, { status: 400 });
   }
 
+  // Normalize niche to Title Case so "dental" and "Dental" don't create separate buckets
+  const normalizedNiche = niche
+    .split(" ")
+    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+
+  const effectiveQuery = searchQuery?.trim() || undefined;
+
+  console.timeLog(normalizedNiche, effectiveQuery);
+
   try {
     // Fetch existing place_ids for this niche to avoid redundant enrichment API calls
     const existing = await sql`
-      SELECT place_id FROM leads WHERE niche = ${niche} AND city = ${city}
+      SELECT place_id FROM leads WHERE niche = ${normalizedNiche} AND city = ${city}
     `;
     const existingPlaceIds = new Set(existing.map((r: any) => r.place_id));
 
-    const leads = await scrapeLeads(niche, city, existingPlaceIds);
+    console.log("existing count", existingPlaceIds.size);
 
-    // Upsert each lead — skip duplicates by place_id
+    const { allLeads, newLeads } = await scrapeLeads(
+      normalizedNiche,
+      city,
+      existingPlaceIds,
+      effectiveQuery,
+    );
+
+    // Insert new leads (enriched with website, phone, categories)
+    // On conflict: update categories so re-scraping keeps them fresh
     const results = await Promise.all(
-      leads.map(
+      newLeads.map(
         (lead) =>
           sql`
-          INSERT INTO leads (place_id, name, website, phone, address, niche, city, google_rating, review_count)
+          INSERT INTO leads (place_id, name, website, phone, address, niche, city, google_rating, review_count, categories)
           VALUES (
             ${lead.place_id},
             ${lead.name},
             ${lead.website ?? null},
             ${lead.phone ?? null},
             ${lead.address ?? null},
-            ${niche},
+            ${normalizedNiche},
             ${city},
             ${lead.google_rating ?? null},
-            ${lead.review_count ?? null}
+            ${lead.review_count ?? null},
+            ${lead.categories}
           )
-          ON CONFLICT (place_id) DO NOTHING
-          RETURNING *
+          ON CONFLICT (place_id) DO UPDATE SET categories = EXCLUDED.categories
+          RETURNING *, (xmax = 0) AS is_new
         `,
       ),
     );
 
-    const inserted = results.flat();
+    const allResults = results.flat();
+    const inserted = allResults.filter((r: any) => r.is_new);
+
+    // Log the search
+    await sql`
+      INSERT INTO search_logs (niche, search_query, city, leads_found, leads_inserted, status)
+      VALUES (
+        ${normalizedNiche},
+        ${effectiveQuery ?? null},
+        ${city},
+        ${allLeads.length},
+        ${inserted.length},
+        'success'
+      )
+    `;
+
+    const searchLabel = effectiveQuery
+      ? `"${effectiveQuery}"`
+      : normalizedNiche;
 
     return NextResponse.json({
-      message: `Scraped ${leads.length} leads, inserted ${inserted.length} new`,
+      message: `Searched for ${searchLabel} in ${city} — ${allLeads.length} found, ${inserted.length} new`,
       leads: inserted,
     });
   } catch (err: any) {
     console.error("Scrape error:", err);
+
+    // Log the failure too
+    try {
+      await sql`
+        INSERT INTO search_logs (niche, search_query, city, leads_found, leads_inserted, status, error_message)
+        VALUES (
+          ${normalizedNiche},
+          ${effectiveQuery ?? null},
+          ${city},
+          0,
+          0,
+          'error',
+          ${err.message}
+        )
+      `;
+    } catch (_) {
+      // Don't let logging failure mask the real error
+    }
+
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

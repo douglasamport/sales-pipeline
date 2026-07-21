@@ -24,6 +24,7 @@ interface Lead {
   status: string;
   google_rating?: number;
   review_count?: number;
+  categories?: string[];
 }
 
 interface Audit {
@@ -115,6 +116,7 @@ export default function DashboardPage() {
   const [contacts, setContacts] = useState<Record<number, Contact[]>>({});
   const [activeTab, setActiveTab] = useState<TierTab>("A");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [acting, setActing] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
@@ -179,6 +181,10 @@ export default function DashboardPage() {
 
   const scored = leads.filter((l) => audits[l.id]?.scored_at);
 
+  const allCategories = Array.from(
+    new Set(scored.flatMap((l) => l.categories ?? []))
+  ).sort();
+
   const filtered = scored.filter((l) => {
     const audit = audits[l.id];
     const tierMatch =
@@ -191,7 +197,9 @@ export default function DashboardPage() {
       statusFilter === "all"
         ? l.status !== "discarded"
         : l.status === statusFilter;
-    return tierMatch && statusMatch;
+    const categoryMatch =
+      categoryFilter === "all" || l.categories?.includes(categoryFilter);
+    return tierMatch && statusMatch && categoryMatch;
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -206,18 +214,34 @@ export default function DashboardPage() {
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded px-3 py-1.5"
-        >
-          <option value="all">All active</option>
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s.charAt(0).toUpperCase() + s.slice(1)}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          {allCategories.length > 0 && (
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded px-3 py-1.5"
+            >
+              <option value="all">All categories</option>
+              {allCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          )}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded px-3 py-1.5"
+          >
+            <option value="all">All active</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Tier tabs */}

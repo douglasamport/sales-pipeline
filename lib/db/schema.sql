@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS leads (
   city          TEXT DEFAULT 'Calgary',
   google_rating NUMERIC(2,1),
   review_count  INT,
-  status        TEXT DEFAULT 'new'     -- new | audited | reviewed | contacted | replied | booked
+  status        TEXT DEFAULT 'new',    -- new | audited | reviewed | contacted | replied | booked
+  categories    TEXT[] DEFAULT '{}'    -- Google Places types, filtered to meaningful values
 );
 
 -- Audits: website + SEO health check results
@@ -90,6 +91,19 @@ CREATE TABLE IF NOT EXISTS scores (
   opportunity_score INT,
   total             INT,
   tier              TEXT          -- A | B | C
+);
+
+-- Search logs: record of every lead scrape run
+CREATE TABLE IF NOT EXISTS search_logs (
+  id             SERIAL PRIMARY KEY,
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  niche          TEXT NOT NULL,
+  search_query   TEXT,           -- actual query sent to Google (null if same as niche)
+  city           TEXT NOT NULL,
+  leads_found    INT,            -- total results returned by Google
+  leads_inserted INT,            -- net new leads added to DB
+  status         TEXT DEFAULT 'success',   -- success | error
+  error_message  TEXT
 );
 
 -- Outreach: email drafts, variants, and outcomes
