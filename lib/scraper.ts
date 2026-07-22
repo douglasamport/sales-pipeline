@@ -35,12 +35,9 @@ async function fetchPage(query: string, pageToken?: string) {
     ...(pageToken ? { pagetoken: pageToken } : {}),
   });
 
-  console.log(query, pageToken?.slice(0, 20));
-
   let data: any;
   try {
     const url = `${BASE_URL}/textsearch/json?${params}`;
-    console.log("URL", url);
     var res = await fetch(url);
 
     if (res.status !== 200 && data.statusText !== "OK") {
@@ -61,7 +58,9 @@ async function fetchPage(query: string, pageToken?: string) {
     address: place.formatted_address,
     google_rating: place.rating,
     review_count: place.user_ratings_total,
-    categories: (place.types ?? []).filter((t: string) => !GENERIC_TYPES.has(t)),
+    categories: (place.types ?? []).filter(
+      (t: string) => !GENERIC_TYPES.has(t),
+    ),
   }));
 
   return { leads, nextPageToken: data.next_page_token };
@@ -104,7 +103,6 @@ export async function scrapeLeads(
   do {
     const { leads, nextPageToken } = await fetchPage(query, pageToken);
 
-    console.log("LEADS", leads.length);
     const filteredLeads = leads.filter(
       (l) => !existingPlaceIds.has(l.place_id),
     );

@@ -3,7 +3,6 @@ import { sql } from "@/lib/db";
 import { enrichWithHunter } from "@/lib/hunter";
 
 export async function POST(req: Request) {
-  console.log("workin");
   try {
     const { lead_id } = await req.json();
     if (!lead_id)
@@ -17,7 +16,6 @@ export async function POST(req: Request) {
         { status: 400 },
       );
 
-    console.log(leads, "LEADS");
     const { contacts, error } = await enrichWithHunter(lead.website);
     if (error) return NextResponse.json({ error }, { status: 500 });
 

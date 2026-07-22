@@ -63,7 +63,6 @@ export default function LeadsPage() {
   }, []);
 
   async function handleScrape() {
-    console.log("Scrapgin");
     setLoading(true);
     setMessage("");
 
@@ -79,8 +78,6 @@ export default function LeadsPage() {
       });
 
       const data = await res.json();
-
-      console.log("DATA", data);
 
       if (!res.ok) throw new Error(data.error);
 

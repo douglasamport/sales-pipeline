@@ -129,7 +129,6 @@ export default function AuditPage() {
         r.json(),
       ),
     ]).then(([leadsData, auditsData]) => {
-      console.log(auditsData, "LENGTH");
       setLeads(leadsData.leads ?? []);
       const auditMap: Record<number, Audit> = {};
       for (const audit of auditsData.audits ?? []) {
@@ -299,7 +298,6 @@ export default function AuditPage() {
     if (!lead.website) return;
     setHunting((prev) => ({ ...prev, [lead.id]: true }));
 
-    console.log(lead.id);
     try {
       const res = await fetch("/api/hunter", {
         method: "POST",
@@ -308,8 +306,6 @@ export default function AuditPage() {
       });
 
       const data = await res.json();
-
-      console.log(data, "DATA");
       if (!data.error) {
         setAudits((prev) => ({
           ...prev,
@@ -361,7 +357,6 @@ export default function AuditPage() {
   }
 
   async function runEnrich(lead: Lead) {
-    console.log();
     if (!lead.website) return;
     setEnriching((prev) => ({ ...prev, [lead.id]: true }));
     try {
@@ -386,7 +381,7 @@ export default function AuditPage() {
         }));
       }
     } catch (e) {
-      console.log(e);
+      console.warn(e);
     } finally {
       setEnriching((prev) => ({ ...prev, [lead.id]: false }));
     }

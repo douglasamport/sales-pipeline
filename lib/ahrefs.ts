@@ -2,11 +2,26 @@ const AHREFS_API = "https://api.ahrefs.com/v3";
 
 // Domains to exclude from competitor results — directories and social platforms
 const NON_COMPETITOR_DOMAINS = new Set([
-  "facebook.com", "instagram.com", "linkedin.com", "twitter.com", "x.com",
-  "youtube.com", "yelp.com", "google.com", "tripadvisor.com",
-  "yellowpages.com", "bbb.org", "thumbtack.com", "angi.com",
-  "homeadvisor.com", "houzz.com", "realtor.com", "zillow.com",
-  "wikipedia.org", "reddit.com", "pinterest.com",
+  "facebook.com",
+  "instagram.com",
+  "linkedin.com",
+  "twitter.com",
+  "x.com",
+  "youtube.com",
+  "yelp.com",
+  "google.com",
+  "tripadvisor.com",
+  "yellowpages.com",
+  "bbb.org",
+  "thumbtack.com",
+  "angi.com",
+  "homeadvisor.com",
+  "houzz.com",
+  "realtor.com",
+  "zillow.com",
+  "wikipedia.org",
+  "reddit.com",
+  "pinterest.com",
 ]);
 
 export interface AhrefsResult {
@@ -72,8 +87,6 @@ export async function enrichWithAhrefs(url: string): Promise<AhrefsResult> {
   const headers = { Authorization: `Bearer ${apiKey}` };
   const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
-  console.log(domain, "DOMAIN");
-
   try {
     const [drRes, metricsRes] = await Promise.all([
       fetch(
@@ -93,20 +106,27 @@ export async function enrichWithAhrefs(url: string): Promise<AhrefsResult> {
       metricsRes.json(),
     ]);
 
-    console.log("Ahrefs DR response:", JSON.stringify(drData));
-    console.log("Ahrefs metrics response:", JSON.stringify(metricsData));
-
     return {
-      domain_rating: drData.domain_rating?.domain_rating != null
-        ? Math.round(drData.domain_rating.domain_rating) : null,
-      referring_domains: metricsData.metrics?.referring_domains != null
-        ? Math.round(metricsData.metrics.referring_domains) : null,
-      backlinks: metricsData.metrics?.backlinks != null
-        ? Math.round(metricsData.metrics.backlinks) : null,
-      organic_keywords: metricsData.metrics?.org_keywords != null
-        ? Math.round(metricsData.metrics.org_keywords) : null,
-      organic_traffic: metricsData.metrics?.org_traffic != null
-        ? Math.round(metricsData.metrics.org_traffic) : null,
+      domain_rating:
+        drData.domain_rating?.domain_rating != null
+          ? Math.round(drData.domain_rating.domain_rating)
+          : null,
+      referring_domains:
+        metricsData.metrics?.referring_domains != null
+          ? Math.round(metricsData.metrics.referring_domains)
+          : null,
+      backlinks:
+        metricsData.metrics?.backlinks != null
+          ? Math.round(metricsData.metrics.backlinks)
+          : null,
+      organic_keywords:
+        metricsData.metrics?.org_keywords != null
+          ? Math.round(metricsData.metrics.org_keywords)
+          : null,
+      organic_traffic:
+        metricsData.metrics?.org_traffic != null
+          ? Math.round(metricsData.metrics.org_traffic)
+          : null,
     };
   } catch (err: any) {
     console.error("Ahrefs error:", err);

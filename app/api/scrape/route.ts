@@ -3,10 +3,7 @@ import { sql } from "@/lib/db";
 import { scrapeLeads } from "@/lib/scraper";
 
 export async function POST(req: NextRequest) {
-  console.log("WORKING");
   const { niche, city = "Calgary", searchQuery } = await req.json();
-
-  console.log("call data", niche, city, searchQuery);
 
   if (!niche) {
     return NextResponse.json({ error: "niche is required" }, { status: 400 });
@@ -28,8 +25,6 @@ export async function POST(req: NextRequest) {
       SELECT place_id FROM leads WHERE niche = ${normalizedNiche} AND city = ${city}
     `;
     const existingPlaceIds = new Set(existing.map((r: any) => r.place_id));
-
-    console.log("existing count", existingPlaceIds.size);
 
     const { allLeads, newLeads } = await scrapeLeads(
       normalizedNiche,

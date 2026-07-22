@@ -22,8 +22,6 @@ export async function enrichWithHunter(
     );
     const data = await res.json();
 
-    console.log(data, "DATA from hunter");
-
     const emails: any[] = data.data?.emails ?? [];
     return {
       contacts: emails.map((e) => ({

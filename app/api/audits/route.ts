@@ -4,7 +4,6 @@ import { sql } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  console.log("working");
   try {
     const audits = await sql`
       SELECT * FROM audits
