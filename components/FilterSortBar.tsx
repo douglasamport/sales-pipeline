@@ -19,18 +19,22 @@ const STATUS_OPTIONS = [
 
 export interface FilterSortState {
   category: string;
+  niche: string;
   city: string;
   status: string;
   tier: string;
+  user: "mine" | "all";
   sortBy: string;
   sortDir: "asc" | "desc";
 }
 
 export const DEFAULT_FILTERS: FilterSortState = {
+  niche: "all",
   category: "all",
   city: "all",
   status: "all",
   tier: "all",
+  user: "mine",
   sortBy: "total_score",
   sortDir: "desc",
 };
@@ -38,6 +42,7 @@ export const DEFAULT_FILTERS: FilterSortState = {
 interface FilterSortBarProps {
   filters: FilterSortState;
   onChange: (filters: FilterSortState) => void;
+  niches: string[];
   categories: string[];
   cities: string[];
   resultCount: number;
@@ -49,6 +54,7 @@ const SELECT =
 export default function FilterSortBar({
   filters,
   onChange,
+  niches,
   categories,
   cities,
   resultCount,
@@ -62,6 +68,7 @@ export default function FilterSortBar({
   }
 
   const activeFilterCount = [
+    filters.niche !== "all",
     filters.category !== "all",
     filters.city !== "all",
     filters.status !== "all",
@@ -70,6 +77,22 @@ export default function FilterSortBar({
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 mb-6 flex flex-wrap items-center gap-2">
+      {/* Niches */}
+      {niches.length > 0 && (
+        <select
+          value={filters.niche}
+          onChange={(e) => set("niche", e.target.value)}
+          className={SELECT}
+        >
+          <option value="all">All niches</option>
+          {niches.map((c) => (
+            <option key={c} value={c}>
+              {c.replace(/_/g, " ")}
+            </option>
+          ))}
+        </select>
+      )}
+
       {/* Category */}
       {categories.length > 0 && (
         <select
@@ -126,6 +149,16 @@ export default function FilterSortBar({
         <option value="A">Tier A</option>
         <option value="B">Tier B</option>
         <option value="C">Tier C</option>
+      </select>
+
+      {/* User */}
+      <select
+        value={filters.user}
+        onChange={(e) => set("user", e.target.value)}
+        className={SELECT}
+      >
+        <option value="mine">My Leads</option>
+        <option value="all">All Leads</option>
       </select>
 
       {/* Divider */}

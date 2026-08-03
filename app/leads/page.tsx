@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import type { Lead } from "@/lib/types";
+import { useSession } from "next-auth/react";
 
 const NICHES = [
   "Dental",
@@ -32,19 +34,6 @@ interface SearchLog {
   leads_inserted: number;
   status: "success" | "error";
   error_message: string | null;
-}
-
-interface Lead {
-  id: number;
-  name: string;
-  website?: string;
-  phone?: string;
-  address?: string;
-  niche: string;
-  google_rating?: number;
-  review_count?: number;
-  status: string;
-  categories?: string[];
 }
 
 export default function LeadsPage() {

@@ -264,6 +264,7 @@ BODY:
 // ─── Step 4 — Self-critique (Haiku) ──────────────────────────────────────────
 
 async function critiqueAndRefine(draft: OutreachDraft): Promise<OutreachDraft> {
+  console.log('critique email')
   const prompt = `Review this cold sales email draft:
 
 Subject: ${draft.subject}

@@ -66,20 +66,32 @@ async function fetchPage(query: string, pageToken?: string) {
   return { leads, nextPageToken: data.next_page_token };
 }
 
-// Fetch website + phone from Place Details (costs an extra API call per lead)
+// Fetch website, phone, and full GMB categories via Places API v1
+// The new API has thousands of granular types vs ~100 in the old API
 async function fetchDetails(placeId: string): Promise<Partial<ScrapedLead>> {
-  const params = new URLSearchParams({
-    place_id: placeId,
-    fields: "website,formatted_phone_number",
-    key: PLACES_API_KEY!,
-  });
-
-  const res = await fetch(`${BASE_URL}/details/json?${params}`);
+  const res = await fetch(
+    `https://places.googleapis.com/v1/places/${placeId}`,
+    {
+      headers: {
+        "X-Goog-Api-Key": PLACES_API_KEY!,
+        "X-Goog-FieldMask": "websiteUri,nationalPhoneNumber,types,primaryType",
+      },
+    },
+  );
   const data = await res.json();
 
+  const rawTypes: string[] = data.types ?? [];
+  const categories = rawTypes.filter((t: string) => !GENERIC_TYPES.has(t));
+
+  // Ensure primaryType is first if present and not already included
+  if (data.primaryType && !categories.includes(data.primaryType)) {
+    categories.unshift(data.primaryType);
+  }
+
   return {
-    website: data.result?.website,
-    phone: data.result?.formatted_phone_number,
+    website: data.websiteUri,
+    phone: data.nationalPhoneNumber,
+    ...(categories.length > 0 ? { categories } : {}),
   };
 }
 
@@ -113,7 +125,8 @@ export async function scrapeLeads(
     pages++;
 
     if (pageToken) await new Promise((r) => setTimeout(r, 2000));
-  } while (pageToken && allLeads.length < 60 && pages < 3);
+  } while (pageToken && allLeads.length < 60 && pages < 3); //console.log FIX THIS
+  // } while (pageToken && allLeads.length < 20 && pages < 1);
 
   // Enrich only new leads with website + phone (avoids wasting API calls on duplicates)
   const enrichedNewLeads = await Promise.all(

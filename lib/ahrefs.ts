@@ -106,6 +106,10 @@ export async function enrichWithAhrefs(url: string): Promise<AhrefsResult> {
       metricsRes.json(),
     ]);
 
+    console.log("WORKING");
+    console.log(drData);
+    console.log(metricsData);
+
     return {
       domain_rating:
         drData.domain_rating?.domain_rating != null

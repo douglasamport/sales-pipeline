@@ -4,6 +4,10 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import FilterSortBar from "@/components/FilterSortBar";
 import { useFilters } from "../context/filter-context";
+import { useSession } from "next-auth/react";
+
+import type { Lead, Audit, Contact } from "@/lib/types";
+import { groupFilterElements, filterAndSort } from "@/lib/utils";
 
 const STATUS_OPTIONS = [
   "scored",
@@ -14,57 +18,6 @@ const STATUS_OPTIONS = [
   "booked",
   "discarded",
 ];
-
-interface Lead {
-  id: number;
-  name: string;
-  website?: string;
-  niche: string;
-  city?: string;
-  status: string;
-  starred?: boolean;
-  google_rating?: number;
-  review_count?: number;
-  categories?: string[];
-}
-
-interface Audit {
-  lead_id: number;
-  pagespeed_mobile: number | null;
-  pagespeed_desktop: number | null;
-  has_ssl: boolean;
-  has_meta_description: boolean;
-  has_h1: boolean;
-  has_blog: boolean;
-  has_facebook: boolean;
-  has_instagram: boolean;
-  contact_email: string | null;
-  domain_rating: number | null;
-  organic_keywords: number | null;
-  organic_traffic: number | null;
-  ahrefs_enriched_at: string | null;
-  hunter_enriched_at: string | null;
-  fit_score: number | null;
-  pain_score: number | null;
-  opportunity_score: number | null;
-  total_score: number | null;
-  tier: "A" | "B" | "C" | null;
-  ai_summary: string | null;
-  fit_explanation: string | null;
-  pain_explanation: string | null;
-  opportunity_explanation: string | null;
-  scored_at: string | null;
-  copyright_year: number | null;
-}
-
-interface Contact {
-  id: number;
-  email: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  position: string | null;
-  confidence: number | null;
-}
 
 interface Issue {
   label: string;
@@ -165,7 +118,9 @@ export default function DashboardPage() {
 
   async function toggleStar(lead_id: number, current: boolean) {
     const next = !current;
-    setLeads((prev) => prev.map((l) => l.id === lead_id ? { ...l, starred: next } : l));
+    setLeads((prev) =>
+      prev.map((l) => (l.id === lead_id ? { ...l, starred: next } : l)),
+    );
     await fetch("/api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -197,54 +152,11 @@ export default function DashboardPage() {
     }
   }
 
-  const scored = leads.filter((l) => audits[l.id]?.scored_at);
-
-  const allCategories = Array.from(
-    new Set(scored.flatMap((l) => l.categories ?? [])),
-  ).sort();
-
-  const allCities = Array.from(
-    new Set(scored.map((l) => l.city).filter(Boolean) as string[]),
-  ).sort();
-
-  const sorted = scored
-    .filter((l) => {
-      const audit = audits[l.id];
-      if (
-        filters.status === "all"
-          ? l.status === "discarded"
-          : l.status !== filters.status
-      )
-        return false;
-      if (filters.tier !== "all" && (audit?.tier ?? null) !== filters.tier)
-        return false;
-      if (
-        filters.category !== "all" &&
-        !l.categories?.includes(filters.category)
-      )
-        return false;
-      if (filters.city !== "all" && l.city !== filters.city) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const dir = filters.sortDir === "asc" ? 1 : -1;
-      switch (filters.sortBy) {
-        case "name":
-          return a.name.localeCompare(b.name) * dir;
-        case "google_rating":
-          return ((a.google_rating ?? 0) - (b.google_rating ?? 0)) * dir;
-        case "review_count":
-          return ((a.review_count ?? 0) - (b.review_count ?? 0)) * dir;
-        case "total_score":
-          return (
-            ((audits[a.id]?.total_score ?? 0) -
-              (audits[b.id]?.total_score ?? 0)) *
-            dir
-          );
-        default:
-          return 0;
-      }
-    });
+  const { allNiches, allCategories, allCities } = groupFilterElements(leads);
+  const scored = audits ? leads.filter((l) => audits[l.id]?.scored_at) : [];
+  const { data: session, status } = useSession();
+  const user = filters.user === "mine" ? session?.user?.email : null;
+  const sorted = filterAndSort(scored, filters, audits, user);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -252,11 +164,15 @@ export default function DashboardPage() {
 
       {/* Starred leads strip */}
       {(() => {
-        const starred = leads.filter((l) => l.starred && l.status !== "discarded");
+        const starred = leads.filter(
+          (l) => l.starred && l.status !== "discarded",
+        );
         if (starred.length === 0) return null;
         return (
           <div className="mb-6">
-            <p className="text-xs text-yellow-500 uppercase tracking-wide mb-2">★ Starred</p>
+            <p className="text-xs text-yellow-500 uppercase tracking-wide mb-2">
+              ★ Starred
+            </p>
             <div className="flex flex-wrap gap-2">
               {starred.map((lead) => {
                 const audit = audits[lead.id];
@@ -266,19 +182,30 @@ export default function DashboardPage() {
                     href={`/outreach/${lead.id}`}
                     className="flex items-center gap-2 bg-gray-900 border border-yellow-800/40 hover:border-yellow-600/60 rounded-lg px-3 py-2 transition group"
                   >
-                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
-                      audit?.tier === "A" ? "bg-green-900 text-green-300"
-                      : audit?.tier === "B" ? "bg-yellow-900 text-yellow-300"
-                      : "bg-gray-800 text-gray-400"
-                    }`}>
+                    <span
+                      className={`text-xs font-bold px-1.5 py-0.5 rounded ${
+                        audit?.tier === "A"
+                          ? "bg-green-900 text-green-300"
+                          : audit?.tier === "B"
+                            ? "bg-yellow-900 text-yellow-300"
+                            : "bg-gray-800 text-gray-400"
+                      }`}
+                    >
                       {audit?.tier ?? "?"}
                     </span>
                     <div>
-                      <p className="text-sm text-white group-hover:text-yellow-300 transition leading-tight">{lead.name}</p>
-                      <p className="text-xs text-gray-500">{lead.niche} · {lead.status}</p>
+                      <p className="text-sm text-white group-hover:text-yellow-300 transition leading-tight">
+                        {lead.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {lead.niche} · {lead.status}
+                      </p>
                     </div>
                     <button
-                      onClick={(e) => { e.preventDefault(); toggleStar(lead.id, true); }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toggleStar(lead.id, true);
+                      }}
                       className="ml-1 text-yellow-400 hover:text-gray-500 transition text-sm"
                       title="Unstar"
                     >
@@ -295,6 +222,7 @@ export default function DashboardPage() {
       <FilterSortBar
         filters={filters}
         onChange={setFilters}
+        niches={allNiches}
         categories={allCategories}
         cities={allCities}
         resultCount={sorted.length}

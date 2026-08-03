@@ -1,68 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import FilterSortBar, {
-  FilterSortState,
-  DEFAULT_FILTERS,
-} from "@/components/FilterSortBar";
+import FilterSortBar, { DEFAULT_FILTERS } from "@/components/FilterSortBar";
 import { useFilters } from "../context/filter-context";
+import { useSession } from "next-auth/react";
 
-interface Lead {
-  id: number;
-  name: string;
-  website?: string;
-  niche: string;
-  city?: string;
-  status: string;
-  google_rating?: number;
-  review_count?: number;
-  categories?: string[];
-}
-
-interface Audit {
-  pagespeed_mobile: number | null;
-  pagespeed_desktop: number | null;
-  has_ssl: boolean;
-  has_meta_description: boolean;
-  has_h1: boolean;
-  has_blog: boolean;
-  has_facebook: boolean;
-  has_instagram: boolean;
-  contact_email: string | null;
-  copyright_year: number | null;
-  // Ahrefs
-  domain_rating: number | null;
-  referring_domains: number | null;
-  backlinks: number | null;
-  organic_keywords: number | null;
-  organic_traffic: number | null;
-  ahrefs_enriched_at: string | null;
-  // Hunter
-  hunter_enriched_at: string | null;
-  // Scoring
-  fit_score: number | null;
-  pain_score: number | null;
-  opportunity_score: number | null;
-  total_score: number | null;
-  tier: "A" | "B" | "C" | null;
-  ai_summary: string | null;
-  fit_explanation: string | null;
-  pain_explanation: string | null;
-  opportunity_explanation: string | null;
-  scored_at: string | null;
-  raw_json: any;
-}
-
-interface Contact {
-  id: number;
-  email: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  position: string | null;
-  confidence: number | null;
-  linkedin: string | null;
-  source: string;
-}
+import type { Lead, Audit, Contact } from "@/lib/types";
+import { groupFilterElements, filterAndSort } from "@/lib/utils";
 
 function Score({ value }: { value: number | null }) {
   if (value === null) return <span className="text-gray-600">—</span>;
@@ -386,53 +330,11 @@ export default function AuditPage() {
       setEnriching((prev) => ({ ...prev, [lead.id]: false }));
     }
   }
+  const { data: session, status } = useSession();
+  const user = filters.user === "mine" ? session?.user?.email : null;
 
-  const allCategories = Array.from(
-    new Set(leads.flatMap((l) => l.categories ?? [])),
-  ).sort();
-
-  const allCities = Array.from(
-    new Set(leads.map((l) => l.city).filter(Boolean) as string[]),
-  ).sort();
-
-  const visibleLeads = leads
-    .filter((lead) => {
-      const audit = audits[lead.id];
-      if (
-        filters.category !== "all" &&
-        !lead.categories?.includes(filters.category)
-      )
-        return false;
-      if (filters.city !== "all" && lead.city !== filters.city) return false;
-      if (
-        filters.status === "all"
-          ? lead.status === "discarded"
-          : lead.status !== filters.status
-      )
-        return false;
-      if (filters.tier !== "all" && (audit?.tier ?? null) !== filters.tier)
-        return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const dir = filters.sortDir === "asc" ? 1 : -1;
-      switch (filters.sortBy) {
-        case "name":
-          return a.name.localeCompare(b.name) * dir;
-        case "google_rating":
-          return ((a.google_rating ?? 0) - (b.google_rating ?? 0)) * dir;
-        case "review_count":
-          return ((a.review_count ?? 0) - (b.review_count ?? 0)) * dir;
-        case "total_score":
-          return (
-            ((audits[a.id]?.total_score ?? 0) -
-              (audits[b.id]?.total_score ?? 0)) *
-            dir
-          );
-        default:
-          return 0;
-      }
-    });
+  const { allNiches, allCategories, allCities } = groupFilterElements(leads);
+  const visibleLeads = filterAndSort(leads, filters, audits, user);
 
   return (
     <div className="max-w-full mx-auto px-4">
@@ -471,6 +373,7 @@ export default function AuditPage() {
       <FilterSortBar
         filters={filters}
         onChange={setFilters}
+        niches={allNiches}
         categories={allCategories}
         cities={allCities}
         resultCount={visibleLeads.length}
@@ -641,6 +544,7 @@ export default function AuditPage() {
                       {lead.website ? (
                         <button
                           onClick={(e) => {
+                            console.log("RUNNING AUDIT");
                             e.stopPropagation();
                             runAudit(lead);
                           }}

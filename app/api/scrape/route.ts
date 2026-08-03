@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { scrapeLeads } from "@/lib/scraper";
 
+// server component
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
   const { niche, city = "Calgary", searchQuery } = await req.json();
 
   if (!niche) {
@@ -39,7 +44,7 @@ export async function POST(req: NextRequest) {
       newLeads.map(
         (lead) =>
           sql`
-          INSERT INTO leads (place_id, name, website, phone, address, niche, city, google_rating, review_count, categories)
+          INSERT INTO leads (place_id, name, website, phone, address, niche, city, google_rating, review_count, categories, user_email)
           VALUES (
             ${lead.place_id},
             ${lead.name},
@@ -50,7 +55,8 @@ export async function POST(req: NextRequest) {
             ${city},
             ${lead.google_rating ?? null},
             ${lead.review_count ?? null},
-            ${lead.categories}
+            ${lead.categories},
+            ${session?.user?.email ?? null}
           )
           ON CONFLICT (place_id) DO UPDATE SET categories = EXCLUDED.categories
           RETURNING *, (xmax = 0) AS is_new
