@@ -2,6 +2,7 @@ export interface Lead {
   id: number;
   name: string;
   website?: string;
+  phone: string;
   niche: string;
   city?: string;
   status: string;
